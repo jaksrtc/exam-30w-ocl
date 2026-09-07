@@ -317,30 +317,67 @@
     }
 
     function handleViolation(reason) {
-      violationCount++;
-      localStorage.setItem("violation_count", violationCount.toString());
-      updateViolationUI();
+  violationCount++;
+  localStorage.setItem("violation_count", violationCount.toString());
+  updateViolationUI();
 
-      document.getElementById("lockoutCountText").innerText = `สลับหน้าจอไปแล้ว: ${violationCount} ครั้ง`;
-      document.getElementById("lockoutCurtain").classList.remove("hidden");
+  document.getElementById("lockoutCountText").innerText = `สลับหน้าจอไปแล้ว: ${violationCount} ครั้ง`;
+  document.getElementById("lockoutCurtain").classList.remove("hidden");
 
-      // ส่งด้วย Image Ping ป้องกันเบราว์เซอร์ตัดเน็ตตอนพับแอป
-      const query = new URLSearchParams({
-        action: "log_violation",
-        studentId: studentInfo ? studentInfo.id : "-",
-        studentName: studentInfo ? studentInfo.name : "-",
-        violationCount: violationCount,
-        detail: reason,
-        _t: Date.now()
-      }).toString();
+  // ยิงข้อมูลด้วย Image Request ป้องกัน CORS และทำงานได้แม้สลับแอป
+  var url = GOOGLE_SCRIPT_URL + 
+    "?action=log_violation" +
+    "&studentId=" + encodeURIComponent(studentInfo ? studentInfo.id : "-") +
+    "&studentName=" + encodeURIComponent(studentInfo ? studentInfo.name : "-") +
+    "&violationCount=" + violationCount +
+    "&detail=" + encodeURIComponent(reason) +
+    "&_t=" + Date.now();
 
-      const ping = new Image();
-      ping.src = `${GOOGLE_SCRIPT_URL}?${query}`;
+  var img = new Image();
+  img.src = url;
+}
 
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(`${GOOGLE_SCRIPT_URL}?${query}`);
-      }
-    }
+// ฟังก์ชันส่งคะแนนสอบ
+function submitAndGrade() {
+  clearInterval(timerInterval);
+  var submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  submitBtn.innerText = "กำลังประมวลผลและส่งคะแนน...";
+
+  var score = 0;
+  var answersArr = [];
+
+  examData.forEach(function(q, idx) {
+    var isCorrect = (q.userChoice === q.correctIndex);
+    if (isCorrect) score++;
+    var stateTag = isCorrect ? "ถูก" : "ผิด";
+    var chosen = q.userChoice !== null ? q.choices[q.userChoice] : "ไม่ตอบ";
+    answersArr.push("ข้อ" + (idx + 1) + ":[" + stateTag + "]" + chosen);
+  });
+
+  // ยิงคะแนนเข้า Google Sheet ผ่าน URL Query Parameter
+  var submitUrl = GOOGLE_SCRIPT_URL + 
+    "?action=submit_exam" +
+    "&studentId=" + encodeURIComponent(studentInfo.id) +
+    "&studentName=" + encodeURIComponent(studentInfo.name) +
+    "&score=" + score +
+    "&totalQuestions=" + examData.length +
+    "&violationsTotal=" + violationCount +
+    "&answersSummary=" + encodeURIComponent(answersArr.join(" | ")) +
+    "&_t=" + Date.now();
+
+  var imgSubmit = new Image();
+  imgSubmit.src = submitUrl;
+
+  localStorage.setItem("exam_status", "submitted");
+  localStorage.setItem("final_score", score);
+  localStorage.setItem("final_data", JSON.stringify(examData));
+
+  // หน่วงเวลา 1.5 วินาทีเพื่อให้เน็ตส่งข้อมูลเสร็จก่อนแสดงผล
+  setTimeout(function() {
+    showResults(score);
+  }, 1500);
+}
 
     function updateViolationUI() {
       const notice = document.getElementById("violationNotice");
