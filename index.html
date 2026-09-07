@@ -61,7 +61,6 @@
     }
     .nav-btn.primary { background: #1976d2; color: #fff; }
 
-    /* ม่านเตือนสีแดงเมื่อพยายามสลับแอป */
     .lockout-curtain {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
       background: #b71c1c; color: #fff; z-index: 99999;
@@ -80,7 +79,7 @@
 </head>
 <body>
 
-  <!-- 1. หน้าต่าง Login -->
+  <!-- 1. หน้าล็อกอิน -->
   <div id="loginSection" class="app-viewport" style="justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
     <div class="card" style="width: 100%; max-width: 420px; text-align: center;">
       <h2 style="color: #1976d2; margin-top: 0;">สอบปลายภาคปฏิบัติ & ทฤษฎี</h2>
@@ -96,9 +95,9 @@
       </div>
 
       <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px; font-size: 0.8rem; text-align: left; margin-bottom: 16px; color: #e65100;">
-        ⚠️ <strong>คำเตือนการทุจริต:</strong><br>
+        ⚠️ <strong>กฎระเบียบการสอบ:</strong><br>
         * ระบบจะเต็มหน้าจอทันทีเมื่อเริ่มทำข้อสอบ<br>
-        * <strong>การสลับหน้าจอ, ย่อแอป หรือเปิดแท็บอื่น จะถูกส่งข้อมูลบันทึกเวลาและแจ้งเตือนเข้า Google Sheet ของอาจารย์ทันที</strong>
+        * <strong>ห้ามสลับแท็บ ย่อแอป หรือออกจากเบราว์เซอร์</strong> ระบบจะบันทึกประวัติการสลับหน้าจอส่งตรงไปยัง Google Sheet ของอาจารย์ทันที
       </div>
 
       <button class="btn" onclick="startExam()">เริ่มทำข้อสอบ (60 นาที)</button>
@@ -131,7 +130,7 @@
     </div>
   </div>
 
-  <!-- 3. หน้าแสดงผลตรวจคำตอบและเฉลย -->
+  <!-- 3. หน้าตรวจคำตอบและเฉลย -->
   <div id="resultSection" class="app-viewport hidden">
     <div class="header-bar" style="background: #2e7d32;">
       <span style="font-size: 1.1rem; font-weight: bold;">ผลการสอบและเฉลยคำตอบ</span>
@@ -144,7 +143,7 @@
         <div id="scoreDisplay" style="font-size: 2.4rem; font-weight: bold; color: #1976d2; margin: 10px 0;">0 / 40</div>
         <div id="percentageDisplay" style="font-size: 1.1rem; font-weight: 600; color: #666;">(0%)</div>
         <div id="totalViolationsDisplay" style="font-size: 0.85rem; color: #d32f2f; margin-top: 6px;"></div>
-        <p style="font-size: 0.85rem; color: #2e7d32; margin-top: 10px;">✓ คะแนนและผลตรวจถูกส่งตรงเข้า Google Sheet เรียบร้อยแล้ว</p>
+        <p style="font-size: 0.85rem; color: #2e7d32; margin-top: 10px;">✓ ข้อมูลคะแนนถูกบันทึกลง Google Sheet เรียบร้อยแล้ว</p>
       </div>
 
       <h4 style="margin: 20px 0 10px 0; color: #444;">รายละเอียดการตรวจรายข้อ:</h4>
@@ -152,12 +151,12 @@
     </div>
   </div>
 
-  <!-- ม่านเตือนสีแดงเมื่อพยายามออกจากหน้าจอ -->
+  <!-- ม่านเตือนสีแดงเมื่อพยายามสลับหน้าจอ -->
   <div id="lockoutCurtain" class="lockout-curtain hidden">
     <div style="font-size: 4rem; margin-bottom: 10px;">⚠️</div>
     <h2>ตรวจพบการสลับหน้าจอ!</h2>
     <p style="font-size: 0.95rem; line-height: 1.5; margin-bottom: 15px;">
-      ระบบได้ทำการส่งข้อมูลเวลาและประวัติการสลับหน้าจอ<br>
+      ระบบได้บันทึกเวลาและส่งข้อมูลการสลับหน้าจอ<br>
       <strong>ตรงไปยัง Google Sheet ของอาจารย์ผู้สอนแล้ว</strong>
     </p>
     <div id="lockoutCountText" style="font-size: 1.1rem; font-weight: bold; background: rgba(0,0,0,0.3); padding: 6px 14px; border-radius: 6px; margin-bottom: 20px;">
@@ -170,7 +169,7 @@
 
   <script>
     // =========================================================================
-    // วาง Web App URL จาก Google Apps Script (ลงท้ายด้วย /exec) ที่ Deploy ใหม่ตรงนี้
+    // นำ URL ของ Web App จาก Google Apps Script (ลงท้ายด้วย /exec) มาวางตรงนี้
     // =========================================================================
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSGIYYwDAfMjxCFcTVMyewMcMIvqh9MnN3LSDiiD9vfH2BnRiTCA2Fu4uuy3B5wxfW/exec";
 
@@ -299,13 +298,10 @@
       window.scrollTo(0, 1);
     }
 
-    // ==========================================
-    // ตรวจจับการสลับจอ & ยิงค่าแจ้งเตือนเข้า Sheet ทันที
-    // ==========================================
     function bindSecurityEvents() {
       document.addEventListener("visibilitychange", function() {
         if (document.hidden && localStorage.getItem("exam_status") !== "submitted") {
-          handleViolation("สลับหน้าต่าง / ย่อแอปพลิเคชัน / ปัดเปิดแท็บอื่น");
+          handleViolation("สลับหน้าต่าง / ย่อแอป / เปิดแท็บอื่น");
         }
       });
 
@@ -328,7 +324,7 @@
       document.getElementById("lockoutCountText").innerText = `สลับหน้าจอไปแล้ว: ${violationCount} ครั้ง`;
       document.getElementById("lockoutCurtain").classList.remove("hidden");
 
-      // ส่งพารามิเตอร์แบบ Query String ผ่าน Image Ping (แก้ปัญหาเบราว์เซอร์ตัดเน็ตตอนสลับแอป)
+      // ส่งด้วย Image Ping ป้องกันเบราว์เซอร์ตัดเน็ตตอนพับแอป
       const query = new URLSearchParams({
         action: "log_violation",
         studentId: studentInfo ? studentInfo.id : "-",
@@ -448,7 +444,7 @@
         answersArr.push(`ข้อ${idx + 1}:[${stateTag}]${chosen}`);
       });
 
-      // ใช้ FormData/URLSearchParams ส่งคะแนนเพื่อข้ามบล็อกเกอร์ CORS 100%
+      // ส่งด้วย URLSearchParams เพื่อข้ามปัญหา CORS 100%
       const params = new URLSearchParams();
       params.append("action", "submit_exam");
       params.append("studentId", studentInfo.id);
