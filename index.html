@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>ระบบสอบและเฉลย: 30W OCL Tone Main</title>
+  <title>ระบบสอบปลายภาค: 30W OCL Tone Main</title>
   <style>
     * { 
       box-sizing: border-box; 
@@ -16,6 +16,7 @@
     html, body {
       margin: 0; padding: 0; width: 100%; height: 100%;
       background: #f4f6f8; user-select: none; -webkit-user-select: none;
+      overflow: hidden;
     }
 
     .app-viewport {
@@ -60,7 +61,7 @@
     }
     .nav-btn.primary { background: #1976d2; color: #fff; }
 
-    /* ม่านความปลอดภัยเมื่อสลับแอป */
+    /* ม่านเตือนสีแดงเมื่อพยายามสลับแอป */
     .lockout-curtain {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
       background: #b71c1c; color: #fff; z-index: 99999;
@@ -68,7 +69,6 @@
       padding: 24px; text-align: center;
     }
 
-    /* กล่องเฉลยหลังส่งข้อสอบ */
     .review-item {
       padding: 14px; margin-bottom: 12px; border-radius: 8px; border-left: 5px solid #ccc; background: #fff;
     }
@@ -80,11 +80,11 @@
 </head>
 <body>
 
-  <!-- 1. หน้าต่างล็อกอิน -->
+  <!-- 1. หน้าต่าง Login -->
   <div id="loginSection" class="app-viewport" style="justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
     <div class="card" style="width: 100%; max-width: 420px; text-align: center;">
       <h2 style="color: #1976d2; margin-top: 0;">สอบปลายภาคปฏิบัติ & ทฤษฎี</h2>
-      <p style="color: #666; font-size: 0.9rem;">วงจรขยายเสียง 30W OCL Tone Main</p>
+      <p style="color: #666; font-size: 0.9rem;">วงจรขยายเสียง 30W OCL Tone Main[cite: 1]</p>
       
       <div style="text-align: left; margin-bottom: 14px;">
         <label style="font-weight: 600; font-size: 0.9rem;">รหัสนักศึกษา:</label>
@@ -96,22 +96,21 @@
       </div>
 
       <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px; font-size: 0.8rem; text-align: left; margin-bottom: 16px; color: #e65100;">
-        ⚠️ <strong>ระบบตรวจจับการสอบ:</strong><br>
-        * ระบบจะเต็มหน้าจอทันทีเมื่อเริ่มสอบ<br>
-        * ห้ามสลับแท็บ/แอปพลิเคชัน มิฉะนั้นหน้าจอจะถูกล็อกทันที<br>
-        * คะแนนและเฉลยจะแสดงให้ตรวจดูหลังจากกดส่งข้อสอบ
+        ⚠️ <strong>คำเตือนการทุจริต:</strong><br>
+        * ระบบจะเต็มหน้าจอทันทีเมื่อเริ่มทำข้อสอบ<br>
+        * <strong>การสลับหน้าจอ, ย่อแอป หรือเปิดแท็บอื่น จะถูกส่งข้อมูลบันทึกเวลาและแจ้งเตือนเข้า Google Sheet ของอาจารย์ทันที</strong>
       </div>
 
       <button class="btn" onclick="startExam()">เริ่มทำข้อสอบ (60 นาที)</button>
     </div>
   </div>
 
-  <!-- 2. หน้าต่างทำข้อสอบ -->
+  <!-- 2. หน้าต่างข้อสอบ -->
   <div id="examSection" class="app-viewport hidden">
     <div class="header-bar">
       <div>
         <div style="font-size: 0.85rem;" id="displayStudent">กำลังโหลด...</div>
-        <div style="font-size: 0.75rem; color: #a5d6a7;" id="syncLabel">● บันทึกแล้ว</div>
+        <div style="font-size: 0.75rem; color: #ffcdd2;" id="violationNotice">สลับหน้าจอ: 0 ครั้ง</div>
       </div>
       <div class="timer" id="timerDisplay">60:00</div>
     </div>
@@ -132,7 +131,7 @@
     </div>
   </div>
 
-  <!-- 3. หน้าแสดงผลตรวจคำตอบและเฉลยละเอียด -->
+  <!-- 3. หน้าแสดงผลตรวจคำตอบและเฉลย -->
   <div id="resultSection" class="app-viewport hidden">
     <div class="header-bar" style="background: #2e7d32;">
       <span style="font-size: 1.1rem; font-weight: bold;">ผลการสอบและเฉลยคำตอบ</span>
@@ -144,6 +143,7 @@
         <h3 style="margin-top: 0; color: #333;">สรุปคะแนนสอบของคุณ</h3>
         <div id="scoreDisplay" style="font-size: 2.4rem; font-weight: bold; color: #1976d2; margin: 10px 0;">0 / 40</div>
         <div id="percentageDisplay" style="font-size: 1.1rem; font-weight: 600; color: #666;">(0%)</div>
+        <div id="totalViolationsDisplay" style="font-size: 0.85rem; color: #d32f2f; margin-top: 6px;"></div>
         <p style="font-size: 0.85rem; color: #2e7d32; margin-top: 10px;">✓ คะแนนและผลตรวจถูกส่งตรงเข้า Google Sheet เรียบร้อยแล้ว</p>
       </div>
 
@@ -152,23 +152,26 @@
     </div>
   </div>
 
-  <!-- ม่านล็อกหน้าจอเมื่อสลับแอป -->
+  <!-- ม่านเตือนสีแดงเมื่อพยายามออกจากหน้าจอ -->
   <div id="lockoutCurtain" class="lockout-curtain hidden">
     <div style="font-size: 4rem; margin-bottom: 10px;">⚠️</div>
-    <h2>ตรวจพบการออกจากหน้าจอสอบ!</h2>
-    <p style="font-size: 0.95rem; line-height: 1.5; margin-bottom: 20px;">
-      ท่านกำลังสลับแอป หรือออกจากเบราว์เซอร์<br>
-      <strong>เวลากำลังเดิน กรุณากลับเข้าทำข้อสอบทันที</strong>
+    <h2>ตรวจพบการสลับหน้าจอ!</h2>
+    <p style="font-size: 0.95rem; line-height: 1.5; margin-bottom: 15px;">
+      ระบบได้ทำการส่งข้อมูลเวลาและประวัติการสลับหน้าจอ<br>
+      <strong>ตรงไปยัง Google Sheet ของอาจารย์ผู้สอนแล้ว</strong>
     </p>
+    <div id="lockoutCountText" style="font-size: 1.1rem; font-weight: bold; background: rgba(0,0,0,0.3); padding: 6px 14px; border-radius: 6px; margin-bottom: 20px;">
+      สลับหน้าจอไปแล้ว: 1 ครั้ง
+    </div>
     <button class="btn" style="background: #fff; color: #b71c1c; font-weight: bold; width: 80%; max-width: 280px;" onclick="resumeExamScreen()">
-      กลับเข้าสู่ข้อสอบ
+      กลับเข้าสู่ข้อสอบทันที
     </button>
   </div>
 
   <script>
-    // ==========================================
-    // ครูนำ URL จาก Google Apps Script มาใส่ตรงนี้
-    // ==========================================
+    // =========================================================================
+    // วาง Web App URL จาก Google Apps Script (ลงท้ายด้วย /exec) ที่ Deploy ใหม่ตรงนี้
+    // =========================================================================
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSGIYYwDAfMjxCFcTVMyewMcMIvqh9MnN3LSDiiD9vfH2BnRiTCA2Fu4uuy3B5wxfW/exec";
 
     const masterQuestions = [
@@ -219,6 +222,7 @@
     let currentIndex = 0;
     let timerInterval = null;
     let studentInfo = null;
+    let violationCount = 0;
 
     function shuffle(array) {
       let arr = [...array];
@@ -238,6 +242,7 @@
       if (savedStudent) {
         studentInfo = JSON.parse(savedStudent);
         examData = JSON.parse(localStorage.getItem("exam_data"));
+        violationCount = parseInt(localStorage.getItem("violation_count") || "0");
         launchExamUI();
       }
     };
@@ -254,7 +259,6 @@
       studentInfo = { id: stdId, name: stdName };
       localStorage.setItem("exam_student", JSON.stringify(studentInfo));
 
-      // สุ่มลำดับข้อและตัวเลือก
       examData = shuffle(masterQuestions).map(item => {
         const mapped = item.choices.map((t, idx) => ({ text: t, isCorrect: idx === item.ans }));
         const shuffled = shuffle(mapped);
@@ -271,6 +275,7 @@
       const endTime = Date.now() + EXAM_DURATION;
       localStorage.setItem("exam_end_time", endTime);
       localStorage.setItem("exam_data", JSON.stringify(examData));
+      localStorage.setItem("violation_count", "0");
 
       launchExamUI();
     }
@@ -280,6 +285,7 @@
       document.getElementById("loginSection").classList.add("hidden");
       document.getElementById("examSection").classList.remove("hidden");
       document.getElementById("displayStudent").innerText = `${studentInfo.id} - ${studentInfo.name}`;
+      updateViolationUI();
 
       startTimer();
       renderQuestion();
@@ -293,20 +299,59 @@
       window.scrollTo(0, 1);
     }
 
+    // ==========================================
+    // ตรวจจับการสลับจอ & ยิงค่าแจ้งเตือนเข้า Sheet ทันที
+    // ==========================================
     function bindSecurityEvents() {
       document.addEventListener("visibilitychange", function() {
         if (document.hidden && localStorage.getItem("exam_status") !== "submitted") {
-          document.getElementById("lockoutCurtain").classList.remove("hidden");
+          handleViolation("สลับหน้าต่าง / ย่อแอปพลิเคชัน / ปัดเปิดแท็บอื่น");
         }
       });
+
       document.addEventListener("fullscreenchange", function() {
         if (!document.fullscreenElement && localStorage.getItem("exam_status") !== "submitted") {
-          document.getElementById("lockoutCurtain").classList.remove("hidden");
+          handleViolation("หลุดจากโหมดเต็มหน้าจอ (Exit Fullscreen)");
         }
       });
+
       window.history.pushState(null, null, window.location.href);
       window.onpopstate = function() { window.history.pushState(null, null, window.location.href); };
       document.addEventListener("contextmenu", e => e.preventDefault());
+    }
+
+    function handleViolation(reason) {
+      violationCount++;
+      localStorage.setItem("violation_count", violationCount.toString());
+      updateViolationUI();
+
+      document.getElementById("lockoutCountText").innerText = `สลับหน้าจอไปแล้ว: ${violationCount} ครั้ง`;
+      document.getElementById("lockoutCurtain").classList.remove("hidden");
+
+      // ส่งพารามิเตอร์แบบ Query String ผ่าน Image Ping (แก้ปัญหาเบราว์เซอร์ตัดเน็ตตอนสลับแอป)
+      const query = new URLSearchParams({
+        action: "log_violation",
+        studentId: studentInfo ? studentInfo.id : "-",
+        studentName: studentInfo ? studentInfo.name : "-",
+        violationCount: violationCount,
+        detail: reason,
+        _t: Date.now()
+      }).toString();
+
+      const ping = new Image();
+      ping.src = `${GOOGLE_SCRIPT_URL}?${query}`;
+
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(`${GOOGLE_SCRIPT_URL}?${query}`);
+      }
+    }
+
+    function updateViolationUI() {
+      const notice = document.getElementById("violationNotice");
+      if (notice) {
+        notice.innerText = `สลับหน้าจอ: ${violationCount} ครั้ง`;
+        notice.style.color = violationCount > 0 ? "#ffcdd2" : "#a5d6a7";
+      }
     }
 
     function resumeExamScreen() {
@@ -386,9 +431,6 @@
       }
     }
 
-    // ==========================================
-    // ส่งข้อมูลเข้า Sheet และแสดงผลการตรวจ
-    // ==========================================
     function submitAndGrade() {
       clearInterval(timerInterval);
       const submitBtn = document.getElementById("submitBtn");
@@ -403,33 +445,32 @@
         if (isCorrect) score++;
         const stateTag = isCorrect ? "ถูก" : "ผิด";
         const chosen = q.userChoice !== null ? q.choices[q.userChoice] : "ไม่ตอบ";
-        answersArr.push(`ข้อ${idx + 1}(ID:${q.id}): [${stateTag}] ตอบ: "${chosen}"`);
+        answersArr.push(`ข้อ${idx + 1}:[${stateTag}]${chosen}`);
       });
 
-      const payload = {
-        studentId: studentInfo.id,
-        studentName: studentInfo.name,
-        score: score,
-        totalQuestions: examData.length,
-        answersSummary: answersArr.join(" | ")
-      };
+      // ใช้ FormData/URLSearchParams ส่งคะแนนเพื่อข้ามบล็อกเกอร์ CORS 100%
+      const params = new URLSearchParams();
+      params.append("action", "submit_exam");
+      params.append("studentId", studentInfo.id);
+      params.append("studentName", studentInfo.name);
+      params.append("score", score);
+      params.append("totalQuestions", examData.length);
+      params.append("violationsTotal", violationCount);
+      params.append("answersSummary", answersArr.join(" | "));
 
-      // บันทึกคำตอบและคะแนนลงประวัติแสดงผล
       localStorage.setItem("exam_status", "submitted");
       localStorage.setItem("final_score", score);
       localStorage.setItem("final_data", JSON.stringify(examData));
 
-      // ส่งเข้า Google Apps Script Web App
       fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
+        body: params
       }).then(() => {
         showResults(score);
       }).catch(() => {
         if (navigator.sendBeacon) {
-          navigator.sendBeacon(GOOGLE_SCRIPT_URL, JSON.stringify(payload));
+          navigator.sendBeacon(GOOGLE_SCRIPT_URL, params);
         }
         showResults(score);
       });
@@ -448,6 +489,7 @@
       document.getElementById("studentResultTag").innerText = `${studentInfo.id} ${studentInfo.name}`;
       document.getElementById("scoreDisplay").innerText = `${score} / ${total}`;
       document.getElementById("percentageDisplay").innerText = `คิดเป็น ${pct}%`;
+      document.getElementById("totalViolationsDisplay").innerText = `ประวัติการสลับหน้าจอทั้งหมด: ${violationCount} ครั้ง`;
 
       renderReview();
     }
@@ -456,6 +498,7 @@
       studentInfo = JSON.parse(localStorage.getItem("exam_student")) || { id: "-", name: "-" };
       examData = JSON.parse(localStorage.getItem("final_data")) || [];
       const score = localStorage.getItem("final_score") || 0;
+      violationCount = parseInt(localStorage.getItem("violation_count") || "0");
       document.getElementById("loginSection").classList.add("hidden");
       showResults(parseInt(score));
     }
