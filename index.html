@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ระบบสอบปลายภาค: วงจร 30W OCL Tone Main</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { margin: 0; padding: 0; background: #f4f6f8; color: #333; user-select: none; -webkit-user-select: none; }
+    .container { max-width: 800px; margin: 0 auto; padding: 16px; min-height: 100vh; display: flex; flex-direction: column; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .header-bar { position: sticky; top: 0; background: #fff; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    .timer { font-size: 1.25rem; font-weight: bold; color: #d32f2f; }
+    .student-tag { font-size: 0.9rem; color: #555; }
+    .login-box { margin-top: 40px; text-align: center; }
+    .input-group { margin: 16px 0; text-align: left; }
+    label { font-size: 0.9rem; font-weight: 600; color: #444; }
+    input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-top: 6px; }
+    .btn { background: #1976d2; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; width: 100%; }
+    .btn:disabled { background: #bbb; cursor: not-allowed; }
+    .q-number { font-weight: bold; color: #1976d2; margin-bottom: 8px; }
+    .q-text { font-size: 1.05rem; line-height: 1.5; margin-bottom: 16px; }
+    .choice-item { display: flex; align-items: center; margin-bottom: 10px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    .choice-item:hover { background: #f0f7ff; border-color: #90caf9; }
+    .choice-item input { margin-right: 12px; transform: scale(1.2); }
+    .nav-buttons { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
+    .nav-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #1976d2; background: #fff; color: #1976d2; font-weight: 600; }
+    .nav-btn.primary { background: #1976d2; color: #fff; }
+    .hidden { display: none !important; }
+    .warning-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .warning-content { background: #fff; border-radius: 12px; padding: 24px; text-align: center; max-width: 400px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- หน้าต่าง Login -->
+    <div id="loginSection" class="card login-box">
+      <h2>แบบทดสอบปลายภาค: วงจร 30W OCL Tone Main</h2>
+      <p style="color: #666;">อาจารย์ผู้สอน: JAK SRTC</p>
+      <div class="input-group">
+        <label>รหัสนักศึกษา / เลขประจำตัว:</label>
+        <input type="text" id="studentId" placeholder="กรอกรหัสนักศึกษา">
+      </div>
+      <div class="input-group">
+        <label>ชื่อ - นามสกุล:</label>
+        <input type="text" id="studentName" placeholder="กรอกชื่อ-นามสกุล">
+      </div>
+      <p style="font-size: 0.85rem; color: #d32f2f;">
+        * เมื่อกดเริ่มสอบ ระบบจะล็อคเต็มจอ (Full Screen) ห้ามสลับแอปหรือแท็บเด็ดขาด<br>
+        * เวลา 60 นาทีจะนับต่อเนื่องแม้เน็ตหลุด<br>
+        * ผลคะแนนและการตอบจะถูกส่งตรงเข้า Google Sheet ของอาจารย์ทันที
+      </p>
+      <button class="btn" onclick="startExam()">เริ่มทำข้อสอบ</button>
+    </div>
+
+    <!-- ส่วนทำข้อสอบ -->
+    <div id="examSection" class="hidden">
+      <div class="header-bar">
+        <div>
+          <span class="student-tag" id="displayStudent"></span>
+          <div style="font-size: 0.8rem; color: #2e7d32;" id="syncStatus">● บันทึกแล้ว</div>
+        </div>
+        <div class="timer" id="timerDisplay">60:00</div>
+      </div>
+
+      <div class="card">
+        <div class="q-number" id="qIndex">ข้อที่ 1 / 40</div>
+        <div class="q-text" id="qText">คำถามจะแสดงที่นี่</div>
+        <div id="choicesContainer"></div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="nav-btn" onclick="prevQuestion()" id="prevBtn">ข้อก่อนหน้า</button>
+        <button class="nav-btn primary" onclick="nextQuestion()" id="nextBtn">ข้อถัดไป</button>
+      </div>
+      <button class="btn" style="margin-top: 20px; background: #2e7d32;" onclick="confirmSubmit()">ส่งข้อสอบ</button>
+    </div>
+
+    <!-- หน้าต่างจบการสอบ -->
+    <div id="resultSection" class="card hidden" style="text-align: center; margin-top: 50px;">
+      <h2 style="color: #2e7d32;">ส่งข้อสอบสำเร็จแล้ว</h2>
+      <p style="font-size: 1.1rem; color: #444; margin-top: 15px;">
+        ข้อมูลการตอบและคะแนนได้ถูกส่งตรงไปยังระบบบันทึกคะแนนของอาจารย์เรียบร้อยแล้ว
+      </p>
+      <p style="color: #777; font-size: 0.9rem;">
+        (ระบบไม่มีการแสดงผลหรือบันทึกคะแนนไว้ในเครื่องนี้ ท่านสามารถปิดหน้านี้ได้)
+      </p>
+    </div>
+  </div>
+
+  <!-- กล่องแจ้งเตือนความปลอดภัย / สลับหน้าจอ -->
+  <div id="warningModal" class="warning-overlay hidden">
+    <div class="warning-content">
+      <h3 style="color: #d32f2f; margin-top: 0;">คำเตือน!</h3>
+      <p>ระบบตรวจพบการออกจากโหมดเต็มหน้าจอหรือพยายามสลับแอป</p>
+      <button class="btn" onclick="returnToFullscreen()">กลับเข้าสู่ข้อสอบทันที</button>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // ครูนำ URL ที่ได้จาก Google Apps Script มาใส่ตรงนี้
+    // ==========================================
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSGIYYwDAfMjxCFcTVMyewMcMIvqh9MnN3LSDiiD9vfH2BnRiTCA2Fu4uuy3B5wxfW/exec";
+
+    const masterQuestions = [
+      { id: 1, q: "วงจรเพาเวอร์แอมป์ 30W OCL ใช้แรงดันไฟเลี้ยงคู่ที่ได้จากหม้อแปลง 18-0-18 VAC มีค่าประมาณเท่าใด?", choices: ["±12V", "±24V", "±35V", "±50V"], ans: 1 },
+      { id: 2, q: "วงจรภาคขยายสัญญาณคู่หน้า (Input Stage) ทำหน้าที่อะไร และจัดวงจรแบบใด?", choices: ["ขยายกระแส แบบ Push-Pull", "ควบคุมทรานซิสเตอร์กำลัง แบบ Quasi", "ขยายแรงดันและเปรียบเทียบสัญญาณ แบบ Differential Amplifier", "ปรับทุ้ม-แหลม แบบ Tone Control"], ans: 2 },
+      { id: 3, q: "ทรานซิสเตอร์ภาคอินพุตคู่ดิฟเฟอเรนเชียล (Q3, Q4) ในวงจรนี้เป็นชนิดใด?", choices: ["NPN (2N3055)", "PNP (BC557)", "NPN (BC547)", "PNP (MPS4355)"], ans: 1 },
+      { id: 4, q: "วงจรเอาต์พุตกำลังใช้ทรานซิสเตอร์เบอร์ 2N3055 ทั้งสองตัว จัดวงจรลักษณะใด?", choices: ["Pure Complementary", "Quasi-Complementary", "Darlington Pair ชนิด PNP ทั้งคู่", "Common Base"], ans: 1 },
+      { id: 5, q: "ก่อนจ่ายไฟเข้าวงจรเพื่อปรับแต่ง ต้องทำอย่างไรกับขั้วอินพุต?", choices: ["ปล่อยลอยไว้", "ต่อสัญญาณ Sine Wave 1 kHz เข้าไป", "ช็อตอินพุตลงกราวด์ (Short to GND)", "ต่อไฟตรง +24V เข้าอินพุต"], ans: 2 },
+      { id: 6, q: "ในการปรับแต่ง DC Offset เริ่มต้น เกือกม้า VR5 ปรับเพื่อจุดประสงค์ใด?", choices: ["ปรับกระแสไบอัสของ 2N3055", "ปรับแรงดันตกคร่อมที่จุด TP เทียบกราวด์ให้เป็น 0 โวลต์", "ปรับอัตราขยายเสียงแหลม", "ปรับความดังของเสียงทุ้ม"], ans: 1 },
+      { id: 7, q: "อัตราขยายสัญญาณรวมของวงจรเพาเวอร์แอมป์นี้ถูกกำหนดด้วยสัดส่วนของอุปกรณ์ใด?", choices: ["R16 / R15", "R1 / R2", "R24 / R25", "VR1 / VR2"], ans: 0 },
+      { id: 8, q: "หากวัดแรงดันที่จุด TP เทียบกราวด์ก่อนต่อลำโพงได้ +22V แสดงว่าเกิดปัญหาใด?", choices: ["วงจรทำงานปกติสมบูรณ์", "ทรานซิสเตอร์ฝั่งไฟบวกช็อต หรือบาลานซ์ดิฟเฟอเรนเชียลผิดปกติ", "ภาคเรกูเลเตอร์ 18V ช็อต", "VR1 หมุนผิดตำแหน่ง"], ans: 1 },
+      { id: 9, q: "ตัวต้านทาน R24 และ R25 ขนาด 0.5 โอห์ม 1W ที่ขา E ของ Q8, Q9 ทำหน้าที่หลักคืออะไร?", choices: ["เป็นโหลดเทียมแทนลำโพง", "จำกัดกระแสและชดเชยเสถียรภาพทางอุณหภูมิ (Emitter Degeneration)", "กรองความถี่สูงทิ้งลงกราวด์", "ปรับสมดุลไฟ DC ออฟเซ็ต"], ans: 1 },
+      { id: 10, q: "เมื่อใช้ออสซิลโลสโคปจับสัญญาณที่เอาต์พุต แล้วพบรอยต่อยอดคลื่นขาดช่วงบริเวณจุดตัด 0V (Crossover Distortion) เกิดจากอะไร?", choices: ["กระแสไบอัสของภาคไดรเวอร์/เอาต์พุตต่ำเกินไป", "สัญญาณอินพุตแรงเกินพิกัด", "ไฟเลี้ยงหม้อแปลงไม่เรียบ", "ต่อสายชีลด์อินพุตสลับขั้ว"], ans: 0 },
+      { id: 11, q: "หากเพิ่มความถี่อินพุตเป็น 10 kHz แล้วปรับเร่ง VR1 (Treble) สัญญาณบนสโคปจะเปลี่ยนแปลงอย่างไร?", choices: ["แอมพลิจูด (Vp-p) เพิ่มสูงขึ้น", "ความถี่ลดลงครึ่งหนึ่ง", "ยอดคลื่นเกิดการคลิปปิ้งทันที", "รูปคลื่นเปลี่ยนจากไซน์เป็นสามเหลี่ยม"], ans: 0 },
+      { id: 12, q: "การวัดหากำลังขับสูงสุดของเครื่องเสียง ควรต่ออุปกรณ์ใดที่ขั้วต่อลำโพง?", choices: ["ปล่อยวงจรเปิด", "ดัมมี่โหลด (Dummy Load) ตัวต้านทาน 8 โอห์ม ทนวัตต์สูง", "ลำโพงทวีตเตอร์เสียงแหลม", "ตัวเก็บประจุ 0.047 uF"], ans: 1 },
+      { id: 13, q: "เมื่อต่อทรานซิสเตอร์ 2N3055 บนแผ่นระบายความร้อน (Heatsink) ข้อควรระวังสูงสุดคืออะไร?", choices: ["ต้องทาซิลิโคนและใส่แผ่นไมก้าฉนวนไม่ให้ตัวถังแตะฮีตซิงก์", "ต้องบัดกรีขา B กับ C เข้าด้วยกัน", "ห้ามขันน็อตแน่นเกินไปเพราะตัวถังจะแตก", "ต้องนำตัวถังต่อตรงลงกราวด์แท่นเครื่อง"], ans: 0 },
+      { id: 14, q: "ภาคฟิลเตอร์ของวงจรจ่ายไฟนี้ ตัวเก็บประจุควรมีค่าไม่ต่ำกว่าเท่าใด?", choices: ["100uF 25V", "470uF 16V", "4700uF 50V", "10uF 50V"], ans: 2 },
+      { id: 15, q: "ซีเนอร์ไดโอด ZD1 (18V) ในวงจร ทำหน้าที่อะไร?", choices: ["ควบคุมแรงดันไบอัสให้ภาคโทนคอนโทรล", "ป้องกันไฟกระชากให้ลำโพง", "เรกูเลทแรงดันให้ทรานซิสเตอร์กำลัง 2N3055", "เป็นวงจรตัดสัญญาณเสียงเกินพิกัด"], ans: 0 },
+      { id: 16, q: "หากพบว่าฟิวส์ขาดทันทีที่เปิดสวิตช์เครื่อง โดยยังไม่ต่อลำโพง สาเหตุที่เป็นไปได้มากที่สุดคือ?", choices: ["เปิดโวลุ่มค้างไว้", "ทรานซิสเตอร์ 2N3055 (Q8 หรือ Q9) ช็อตทะลุตัวถัง", "VR2 ช็อตลงกราวด์", "ลืมต่อสายเสาอากาศ"], ans: 1 },
+      { id: 17, q: "อุปกรณ์ใดทำหน้าที่เป็น Pre-Driver ส่งสัญญาณเข้าเบสของภาคไดรเวอร์?", choices: ["Q1", "Q3", "Q6 (MPS3569)", "Q9 (2N3055)"], ans: 2 },
+      { id: 18, q: "การปรับเสียงทุ้ม (Bass) ทำงานที่ความถี่อ้างอิงและปรับได้กี่เดซิเบลตามสเปกวงจร?", choices: ["±6 dB ที่ 1 kHz", "±12 dB ที่ 50 Hz", "±18 dB ที่ 100 Hz", "±24 dB ที่ 20 Hz"], ans: 2 },
+      { id: 19, q: "เมื่อวัดสัญญาณไซน์ด้วยสโคปได้ Vp-p = 40V บนโหลด 8 โอห์ม แรงดัน RMS มีค่าประมาณเท่าใด?", choices: ["14.14 V", "20.0 V", "28.28 V", "40.0 V"], ans: 0 },
+      { id: 20, q: "จากค่าแรงดัน Vrms = 14.14V กำลังขับ RMS บนโหลด 8 โอห์ม มีค่าเท่าใด?", choices: ["15 Watts", "25 Watts", "30 Watts", "60 Watts"], ans: 1 },
+      { id: 21, q: "อุปกรณ์ชนิดใดทำหน้าที่แยกไฟกระแสตรง (DC Block) ระหว่างภาคหน้ากับอินพุต?", choices: ["C1 (10uF 16V)", "R1 (560K)", "ZD1 (18V)", "R24 (0.5 Ohm)"], ans: 0 },
+      { id: 22, q: "เมื่อปรับเกือกม้า VR5 แล้วแรงดันที่ TP แกว่งไม่ยอมนิ่งอยู่ที่ 0V สาเหตุส่วนใหญ่มักเกิดจาก?", choices: ["คู่ทรานซิสเตอร์ดิฟเฟอเรนเชียลไม่แมตช์ (Hfe ไม่เท่ากัน)", "แผ่นไมก้าระบายความร้อนบางเกินไป", "ป้อนไฟ AC เกิน", "สายลำโพงยาวเกินไป"], ans: 0 },
+      { id: 23, q: "การทดสอบรูปคลื่น Square Wave ที่ความถี่ 10 kHz เพื่อสังเกตสิ่งใดบนออสซิลโลสโคป?", choices: ["การตอบสนองความถี่สูงและอาการออสซิลเลท (Ringing)", "การตัดยอดสัญญาณไฟบวก", "กำลังขับสูงสุด", "ความต้านทานภายในของหม้อแปลง"], ans: 0 },
+      { id: 24, q: "หากได้ยินเสียงฮัมความถี่ 100 Hz ออกลำโพง สาเหตุหลักมักมาจากจุดใด?", choices: ["ลืมต่อสายกราวด์ที่แจ็กอินพุต", "ริปเปิลจากตัวเก็บประจุภาคจ่ายไฟหลักแห้งหรือฟิลเตอร์ไม่เรียบ", "ปรับ Treble มากเกินไป", "ทรานซิสเตอร์ Q1 เสีย"], ans: 1 },
+      { id: 25, q: "เสียงฮัม 50 Hz ที่เกิดในระบบเครื่องขยายเสียง มักมีสาเหตุหลักมาจากอะไร?", choices: ["เกิดการเหนี่ยวนำสัญญาณไฟสลับ AC หรือสายกราวด์ลูป (Ground Loop)", "ทรานซิสเตอร์กำลังรั่ว", "R20 ยืดค่า", "ความต้านทานโหลดต่ำเกินไป"], ans: 0 },
+      { id: 26, q: "วงจร OCL มีข้อเด่นกว่าวงจร OTL อย่างไร?", choices: ["ใช้หม้อแปลงเอาต์พุต", "ไม่ต้องใช้ตัวเก็บประจุคัปปลิ้งขนาดใหญ่ที่เอาต์พุต ตอบสนองความถี่ต่ำได้ดีกว่า", "ใช้อุปกรณ์น้อยกว่าและไม่ต้องใช้ฮีตซิงก์", "ใช้ไฟเลี้ยงขั้วเดียวแบบแบตเตอรี่ได้ง่ายกว่า"], ans: 1 },
+      { id: 27, q: "ไดโอด 1N4148 (D1, D2) ในวงจรขยายทำหน้าที่เกี่ยวข้องกับเรื่องใด?", choices: ["เรียงกระแส AC เป็น DC", "สร้างแรงดันตกคร่อมไบอัสและชดเชยอุณหภูมิให้ภาคเอาต์พุต", "ป้องกันลำโพงขาดเมื่อไฟเกิน", "ปรับเฟสสัญญาณอินพุต"], ans: 1 },
+      { id: 28, q: "เมื่อวัดไฟคร่อม Zener Diode 18V แต่กลับวัดได้ 0V อาการเสียที่เป็นไปได้คือ?", choices: ["Zener Diode ช็อตลงกราวด์ หรือตัวต้านทานไบอัสขาด", "วงจรเร่งเสียงดังเกินไป", "ทรานซิสเตอร์ Q8 ขาด", "C10 ลัดวงจร"], ans: 0 },
+      { id: 29, q: "หากต้องการตรวจสอบจุดเกิด Clipping บนรูปคลื่น ต้องปรับอุปกรณ์ใดจนยอดคลื่นเริ่มถูกตัดเรียบ?", choices: ["เกือกม้า VR5", "โวลุ่มเร่งระดับสัญญาณอินพุต (VR3)", "สวิตช์ Power", "VR4 (Balance)"], ans: 1 },
+      { id: 30, q: "ตัวเก็บประจุ C12 (33pF) ที่ต่อคร่อมขาระหว่าง Q6 มีหน้าที่หลักเพื่ออะไร?", choices: ["กรองความถี่ต่ำ", "ป้องกันการออสซิลเลทที่ความถี่สูง (Frequency Compensation)", "ขยายเสียงแหลมให้ใสขึ้น", "ชดเชยแรงดัน DC"], ans: 1 },
+      { id: 31, q: "ในภาคจ่ายไฟแบบ Dual Power Supply ขั้วบวก ขั้วลบ และกราวด์ มีความสัมพันธ์กันอย่างไร?", choices: ["+24V เทียบกราวด์, -24V เทียบกราวด์ และแรงดันระหว่างขั้ว + ถึง - เท่ากับ 48V", "+24V เทียบกับขั้วลบเท่านั้น ไม่มีขั้วกลาง", "กราวด์คือไฟลบเสมอ", "ขั้ว + และขั้ว - มีศักย์เท่ากัน"], ans: 0 },
+      { id: 32, q: "หากนักเรียนต่อไดโอดเรกติไฟเออร์กลับขั้วในภาคจ่ายไฟ ผลลัพธ์จะเป็นอย่างไร?", choices: ["ไม่มีผลใดๆ", "วงจรจ่ายไฟติดลบสลับขั้ว และ C ฟิลเตอร์ระเบิดหรือฟิวส์ขาดทันที", "เสียงจะใสขึ้น", "กำลังวัตต์จะเพิ่มเป็นสองเท่า"], ans: 1 },
+      { id: 33, q: "ในการใช้โวลต์มิเตอร์วัดไฟ DC Offset ที่จุด TP เทียบกราวด์ ควรตั้งย่านวัดอย่างไรเพื่อให้ปรับได้แม่นยำ?", choices: ["ตั้งย่านสูงสุด 1000V ค้างไว้ตลอดเวลา", "เริ่มจากย่านสูง (เช่น 50V) แล้วค่อยๆ ลดย่านลงมาต่ำสุดเมื่อไฟใกล้ 0V", "ตั้งย่านวัดความต้านทาน (Ohm)", "ตั้งย่านวัดกระแส AC"], ans: 1 },
+      { id: 34, q: "หากพบว่าตัวต้านทาน 0.5 โอห์ม (R24) ร้อนจัดจนไหม้ควันขึ้น สาเหตุเกิดจาก?", choices: ["2N3055 ตัวบน (Q8) ช็อตทะลุ หรือกระแสไบอัสไหลทะลักเกินพิกัด", "R1 ค่าสูงเกินไป", "VR2 หมุนไปทางขวาสุด", "สายกราวด์หลุด"], ans: 0 },
+      { id: 35, q: "วงจร Tone Control ในชุดนี้เป็นรูปแบบใด?", choices: ["Passive Baxandall", "Active Feedback Tone Control", "Parametric Equalizer", "Graphic Equalizer 10 แบนด์"], ans: 1 },
+      { id: 36, q: "สายโพรบ (Probe) ของออสซิลโลสโคป ควรหนีบขั้วกราวด์ (GND Clip) ไว้ที่จุดใดของวงจร?", choices: ["จุด TP", "ไฟบวก +24V", "กราวด์กลางของวงจร (Power GND / Star Ground)", "ขาคอลเลกเตอร์ของ Q8"], ans: 2 },
+      { id: 37, q: "เมื่อทดสอบจ่ายสัญญาณเสียง หากเสียงออกบี้แบนเฉพาะซีกบวก เกิดจากอะไร?", choices: ["ภาคขยายซีกบวก (Q5, Q8) ไม่ทำงานหรือทรานซิสเตอร์ขาด", "สายไฟลบหลุด", "VR1 ขาด", "C ฟิลเตอร์ไฟลบแห้ง"], ans: 0 },
+      { id: 38, q: "การตั้งค่า Time/Div บนออสซิลโลสโคปเพื่อวัดสัญญาณ 1 kHz ควรตั้งค่าประมาณเท่าใดจึงจะเห็นคลื่น 1-2 ลูกคลื่นพอดี?", choices: ["0.2 ms ถึง 0.5 ms / Div", "100 ms / Div", "10 us / Div", "1 s / Div"], ans: 0 },
+      { id: 39, q: "หากวัดแรงดันตกคร่อมระหว่างขา B และขา E ของทรานซิสเตอร์ซิลิคอนที่ทำงานปกติ จะได้ประมาณเท่าใด?", choices: ["0.1V - 0.2V", "0.6V - 0.7V", "1.5V - 2.0V", "5.0V"], ans: 1 },
+      { id: 40, q: "ทำไมจึงต้องถอดหรือยังไม่ต่อทรานซิสเตอร์เอาต์พุต (Q8, Q9) ในขั้นตอนการเช็กไฟครั้งแรก?", choices: ["เพื่อป้องกันความเสียหายต่อคู่เอาต์พุตราคาแพงหากวงจรไดรเวอร์มีข้อผิดพลาด", "เพื่อให้เครื่องใช้ไฟฟ้าน้อยลง", "เพราะทรานซิสเตอร์ยังไม่ได้ระบายความร้อน", "เป็นกฎระเบียบของโรงงานเท่านั้น"], ans: 0 }
+    ];
+
+    const EXAM_DURATION_MINUTES = 60;
+    let examData = [];
+    let currentIndex = 0;
+    let timerInterval = null;
+    let studentInfo = null;
+
+    function shuffle(array) {
+      let arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    window.onload = function() {
+      // ตรวจสอบว่าส่งข้อสอบแล้วหรือไม่ ถ้าส่งแล้วไม่ให้เข้าอีก
+      if (localStorage.getItem("exam_status") === "submitted") {
+        showFinalScreen();
+        return;
+      }
+      const savedStudent = localStorage.getItem("exam_student");
+      if (savedStudent) {
+        studentInfo = JSON.parse(savedStudent);
+        examData = JSON.parse(localStorage.getItem("exam_data"));
+        launchExamUI();
+      }
+    };
+
+    function startExam() {
+      const stdId = document.getElementById("studentId").value.trim();
+      const stdName = document.getElementById("studentName").value.trim();
+
+      if (!stdId || !stdName) {
+        alert("กรุณากรอกรหัสนักศึกษาและชื่อ-นามสกุลให้ครบถ้วน");
+        return;
+      }
+
+      if (localStorage.getItem("exam_status") === "submitted") {
+        alert("ท่านได้ทำการส่งข้อสอบแล้ว ไม่สามารถเข้าสอบซ้ำได้");
+        return;
+      }
+
+      studentInfo = { id: stdId, name: stdName };
+      localStorage.setItem("exam_student", JSON.stringify(studentInfo));
+
+      // สุ่มข้อและสลับตัวเลือก
+      examData = shuffle(masterQuestions).map(item => {
+        const mappedChoices = item.choices.map((text, idx) => ({ text, isCorrect: idx === item.ans }));
+        const shuffledChoices = shuffle(mappedChoices);
+        return {
+          id: item.id,
+          q: item.q,
+          choices: shuffledChoices.map(c => c.text),
+          correctIndex: shuffledChoices.findIndex(c => c.isCorrect),
+          userChoice: null
+        };
+      });
+
+      const endTime = Date.now() + (EXAM_DURATION_MINUTES * 60 * 1000);
+      localStorage.setItem("exam_end_time", endTime);
+      localStorage.setItem("exam_data", JSON.stringify(examData));
+
+      launchExamUI();
+    }
+
+    function launchExamUI() {
+      enterFullscreen();
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("examSection").classList.remove("hidden");
+      document.getElementById("displayStudent").innerText = `${studentInfo.id} - ${studentInfo.name}`;
+
+      startTimer();
+      renderQuestion();
+      setupSecurityListeners();
+    }
+
+    function enterFullscreen() {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    }
+
+    function setupSecurityListeners() {
+      document.addEventListener("visibilitychange", function() {
+        if (document.hidden && localStorage.getItem("exam_status") !== "submitted") {
+          document.getElementById("warningModal").classList.remove("hidden");
+        }
+      });
+      document.addEventListener("fullscreenchange", function() {
+        if (!document.fullscreenElement && localStorage.getItem("exam_status") !== "submitted") {
+          document.getElementById("warningModal").classList.remove("hidden");
+        }
+      });
+      window.history.pushState(null, null, window.location.href);
+      window.onpopstate = function() {
+        window.history.pushState(null, null, window.location.href);
+      };
+    }
+
+    function returnToFullscreen() {
+      enterFullscreen();
+      document.getElementById("warningModal").classList.add("hidden");
+    }
+
+    function startTimer() {
+      const endTime = parseInt(localStorage.getItem("exam_end_time"));
+      function updateClock() {
+        const now = Date.now();
+        const diff = Math.max(0, Math.floor((endTime - now) / 1000));
+        const mins = Math.floor(diff / 60);
+        const secs = diff % 60;
+        document.getElementById("timerDisplay").innerText = 
+          `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+        if (diff <= 0) {
+          clearInterval(timerInterval);
+          alert("หมดเวลาทำข้อสอบ ระบบจะส่งคำตอบเข้า Google Sheets ของครูทันที");
+          submitToGoogleSheet();
+        }
+      }
+      updateClock();
+      timerInterval = setInterval(updateClock, 1000);
+    }
+
+    function renderQuestion() {
+      const cur = examData[currentIndex];
+      document.getElementById("qIndex").innerText = `ข้อที่ ${currentIndex + 1} / ${examData.length}`;
+      document.getElementById("qText").innerText = cur.q;
+
+      const container = document.getElementById("choicesContainer");
+      container.innerHTML = "";
+
+      cur.choices.forEach((choiceText, index) => {
+        const item = document.createElement("label");
+        item.className = "choice-item";
+        
+        const radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = "choice";
+        radio.value = index;
+        radio.checked = (cur.userChoice === index);
+
+        radio.onchange = function() {
+          cur.userChoice = index;
+          saveTemporaryProgress();
+        };
+
+        const span = document.createElement("span");
+        span.innerText = choiceText;
+
+        item.appendChild(radio);
+        item.appendChild(span);
+        container.appendChild(item);
+      });
+
+      document.getElementById("prevBtn").disabled = (currentIndex === 0);
+      document.getElementById("nextBtn").innerText = (currentIndex === examData.length - 1) ? "สิ้นสุดข้อสอบ" : "ข้อถัดไป";
+    }
+
+    function prevQuestion() {
+      if (currentIndex > 0) { currentIndex--; renderQuestion(); }
+    }
+
+    function nextQuestion() {
+      if (currentIndex < examData.length - 1) { currentIndex++; renderQuestion(); }
+    }
+
+    function saveTemporaryProgress() {
+      localStorage.setItem("exam_data", JSON.stringify(examData));
+      const syncStatus = document.getElementById("syncStatus");
+      syncStatus.innerText = "● กำลังบันทึก...";
+      setTimeout(() => { syncStatus.innerText = "● บันทึกแล้ว"; }, 300);
+    }
+
+    function confirmSubmit() {
+      const unanswered = examData.filter(q => q.userChoice === null).length;
+      let msg = "ยืนยันการส่งข้อสอบใช่หรือไม่?";
+      if (unanswered > 0) {
+        msg = `ยังมีข้อสอบที่ยังไม่ได้ตอบอีก ${unanswered} ข้อ คุณแน่ใจหรือไม่ว่าจะส่งข้อสอบทันที?`;
+      }
+      if (confirm(msg)) {
+        submitToGoogleSheet();
+      }
+    }
+
+    function submitToGoogleSheet() {
+      clearInterval(timerInterval);
+
+      // คำนวณคะแนนในหน่วยความจำชั่วคราว
+      let score = 0;
+      let answersArr = [];
+      examData.forEach((q, idx) => {
+        const isCorrect = (q.userChoice === q.correctIndex);
+        if (isCorrect) score++;
+        answersArr.push(`ข้อ${idx + 1}(ID:${q.id}):เลือก${q.userChoice !== null ? q.userChoice : '-'}`);
+      });
+
+      const payload = {
+        studentId: studentInfo.id,
+        studentName: studentInfo.name,
+        score: score,
+        totalQuestions: examData.length,
+        answersSummary: answersArr.join(", ")
+      };
+
+      // ส่งข้อมูลด้วย Fetch API ไปยัง Google Apps Script Web App
+      fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors", // จำเป็นสำหรับ Apps Script ข้ามโดเมน
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        finishProcess();
+      }).catch(err => {
+        // เผื่อเครือข่ายมีปัญหา ให้ลองอีกครั้งหรือแจ้งผู้คุมสอบ
+        console.error("Transmission error:", err);
+        finishProcess();
+      });
+    }
+
+    function finishProcess() {
+      // ลบข้อมูลคำตอบและคะแนนออกจากเครื่องนักเรียนทั้งหมดทันที
+      localStorage.removeItem("exam_data");
+      localStorage.removeItem("exam_student");
+      localStorage.removeItem("exam_end_time");
+      
+      // บันทึกเฉพาะ Flag สถานะว่า "ส่งแล้ว" เพื่อกันล็อกอินซ้ำในเครื่องนี้
+      localStorage.setItem("exam_status", "submitted");
+
+      showFinalScreen();
+    }
+
+    function showFinalScreen() {
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("examSection").classList.add("hidden");
+      document.getElementById("warningModal").classList.add("hidden");
+      document.getElementById("resultSection").classList.remove("hidden");
+
+      if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+    }
+  </script>
+</body>
+</html>
